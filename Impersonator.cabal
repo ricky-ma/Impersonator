@@ -16,7 +16,6 @@ maintainer:          justinpfrank@protonmail.com
 -- category:
 build-type:          Simple
 extra-source-files:  CHANGELOG.md, README.md
-profiling: true
 
 executable Impersonator
   main-is:             Impersonator.hs
