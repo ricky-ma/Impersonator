@@ -3,7 +3,7 @@ import Data.Char (toLower)
 import Data.Map (Map)
 import Data.HashMap.Strict (HashMap)
 import Data.Maybe (fromMaybe)
-import Data.List (sortBy)
+import Data.List (sortBy, foldl')
 import Data.List.Split (split, whenElt)
 import Data.Function (on)
 import System.Environment (getArgs)
@@ -61,7 +61,7 @@ insertGram :: (Ord a, Hashable a) => Gram a -> GramMap a -> GramMap a
 insertGram (key,next) = HM.alter (Just . M.insertWith (+) next 1 . fromMaybe M.empty) key
 
 insertGrams :: (Ord a, Hashable a) => GramMap a -> [Gram a] -> GramMap a
-insertGrams = foldl (\gm g -> insertGram g gm)
+insertGrams = foldl' (\gm g -> insertGram g gm)
 
 expandPredictions :: [GramPred a] -> [a]
 expandPredictions [] = []
@@ -69,10 +69,11 @@ expandPredictions ((v, 0):t) = expandPredictions t
 expandPredictions ((v, f):t) = v : (expandPredictions ((v, f-1):t))
 
 predictNext :: (Ord a, Hashable a) => GramMap a -> [a] -> [GramPred a]
+predictNext _ [] = []
 predictNext gm lst =
   case HM.lookup lst gm of
     Just fm -> sortByFreq $ M.toList fm
-    Nothing -> []
+    Nothing -> predictNext gm (tail lst)
 
 processText :: String -> [String]
 processText =
@@ -83,9 +84,8 @@ readtxt filename n =
     do
       fileText <- readFile filename
       let textWords = processText fileText
-          grams = ngrams textWords n
-          gramMap = insertGrams HM.empty grams
-
+          grams = map (ngrams textWords) [2..n]
+          gramMap = foldl' insertGrams HM.empty grams
       return gramMap
 
 main :: IO ()
