@@ -24,6 +24,8 @@ executable Impersonator
   -- other-extensions:
   build-depends:       base >=4.12 && <4.13
                      , containers >= 0.6
+                     , deepseq >= 1.4
+                     , split >= 0.2.3
                      , unordered-containers >= 0.2.10
                      , hashable >= 1.0.1.1 && < 1.4
   -- hs-source-dirs:

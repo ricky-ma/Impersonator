@@ -1,8 +1,10 @@
+import Control.DeepSeq (deepseq)
 import Data.Char (toLower)
 import Data.Map (Map)
 import Data.HashMap.Strict (HashMap)
 import Data.Maybe (fromMaybe)
 import Data.List (sortBy)
+import Data.List.Split (split, whenElt)
 import Data.Function (on)
 import System.Environment (getArgs)
 
@@ -23,11 +25,24 @@ splitsep sep (h:t)
     | otherwise = ((h:w):rest)
                 where w:rest = splitsep sep t
 
-removePunc :: String -> String
-removePunc string = [ char | char <- string, not (char `elem` ",.?!-_:;\"\'\n") ]
+-- Remove all elements that appear more than once in a row in 'seps'
+removeSeqElems :: Eq a => [a] -> [a] -> [a]
+removeSeqElems seps [] = []
+removeSeqElems seps (h:t)
+  | h `elem` seps && isNextElem t = removeSeqElems seps $ dropWhile (`elem` seps) t
+  | otherwise = h : removeSeqElems seps t
+      where isNextElem [] = False
+            isNextElem (h:t) = h `elem` seps
 
-delPuncAndLower :: [String] -> [String]
-delPuncAndLower strings = map (map toLower) (map removePunc strings)
+-- Translate everything in 'from' to 'to' in given list
+translate :: Eq a => [a] -> a -> [a] -> [a]
+translate _ _ [] = []
+translate from to (h:t)
+  | h `elem` from = to : translate from to t
+  | otherwise = h : translate from to t
+
+separateElems :: Eq a => [a] -> [a] -> [[a]]
+separateElems seps = split (whenElt (`elem` seps))
 
 sortByFreq :: Ord n => [(t, n)] -> [(t, n)]
 sortByFreq tuples = sortBy (flip compare `on` (\(a,b)->b)) tuples
@@ -59,20 +74,25 @@ predictNext gm lst =
     Just fm -> sortByFreq $ M.toList fm
     Nothing -> []
 
+processText :: String -> [String]
+processText =
+  filter (not . null) . concat . map (separateElems ".,?!:;\"") . words . translate "*_()[]{}<>" ' ' . removeSeqElems "_-="
+
 readtxt :: FilePath -> Int -> IO (GramMap String)
 readtxt filename n =
     do
-      file <- readFile filename
-      let words = concat [splitsep (==' ') line| line <- splitsep (=='\n') file]
-      let cleanWords = delPuncAndLower words
-      let grams = ngrams cleanWords n
-      let gramMap = insertGrams HM.empty grams
+      fileText <- readFile filename
+      let textWords = processText fileText
+          grams = ngrams textWords n
+          gramMap = insertGrams HM.empty grams
 
       return gramMap
 
 main :: IO ()
 main = do
-  [filename] <- getArgs
-  gramMap <- readtxt filename 3
-  print $ predictNext gramMap ["whan", "that"]
-
+  [filename, nstr] <- getArgs
+  let n = read nstr :: Int
+  gramMap <- readtxt filename n
+  putStrLn "Parsing input file... This may take a minute."
+  deepseq gramMap putStrLn "Done." -- Dark magic, ensures gramMap is resolved
+  putStrLn "TODO: prompt for text and generate predictions"
