@@ -195,9 +195,26 @@ mostFreqNGram gramMap =
     let gramList = HM.toList(gramMap)
         unorderedList = (temp gramList)
         orderedList = (sortByFreq unorderedList)
-        mostFreqTuple = getTuple orderedList (read input)
-    putStrLn (combineText (getFirst mostFreqTuple))
-    putStrLn ("This N-gram appeared " ++ (show (getSecond mostFreqTuple)) ++ " times in the file.")
+        num = (read input)
+        mostFreq1 = (getTuple orderedList num)
+        noTop1 = (delTopTuple orderedList mostFreq1)
+        mostFreq2 = (getTuple noTop1 num)
+        noTop2 = (delTopTuple noTop1 mostFreq2)
+        mostFreq3 = (getTuple noTop2 num)
+        noTop3 = (delTopTuple noTop2 mostFreq3)
+        mostFreq4 = (getTuple noTop3 num)
+        noTop4 = (delTopTuple noTop3 mostFreq4)
+        mostFreq5 = (getTuple noTop4 num)
+    putStrLn ("1. " ++ combineText (getFirst mostFreq1))
+    putStrLn ("This N-gram appeared " ++ (show (getSecond mostFreq1)) ++ " times in the file.")
+    putStrLn ("2. " ++ combineText (getFirst mostFreq2))
+    putStrLn ("This N-gram appeared " ++ (show (getSecond mostFreq2)) ++ " times in the file.")
+    putStrLn ("3. " ++ combineText (getFirst mostFreq3))
+    putStrLn ("This N-gram appeared " ++ (show (getSecond mostFreq3)) ++ " times in the file.")
+    putStrLn ("4. " ++ combineText (getFirst mostFreq4))
+    putStrLn ("This N-gram appeared " ++ (show (getSecond mostFreq4)) ++ " times in the file.")
+    putStrLn ("5. " ++ combineText (getFirst mostFreq5))
+    putStrLn ("This N-gram appeared " ++ (show (getSecond mostFreq5)) ++ " times in the file.")
     options gramMap
 
 -- getting an unodered gram List
@@ -212,6 +229,11 @@ temp2 (x,((str,freq):t)) = (x ++ [str], freq) : temp2 (x,t)
 getTuple ((a,b):y) n
     | (length a) == n = (a,b)
     | otherwise = getTuple y n
+
+delTopTuple [] _ = []
+delTopTuple (h:t) a
+    | ((getFirst h) == (getFirst a) && (getSecond h) == (getSecond a)) = delTopTuple t a
+    | otherwise              = h : delTopTuple t a
 
 endProgram =
   do 
