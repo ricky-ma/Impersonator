@@ -50,7 +50,9 @@ sortByFreq :: Ord n => [(t, n)] -> [(t, n)]
 sortByFreq tuples = sortBy (flip compare `on` (\(a,b)->b)) tuples
 
 listHasN :: Int -> [a] -> Bool
-listHasN n (lst) = (length lst) >= n
+listHasN 0 _ = True
+listHasN n [] = False
+listHasN n (h:t) = listHasN (n-1) t
 
 ngrams :: [a] -> Int -> [Gram a]
 ngrams lst n
@@ -196,6 +198,7 @@ mostFreqNGram gramMap =
         mostFreqTuple = getTuple orderedList (read input)
     putStrLn (combineText (getFirst mostFreqTuple))
     putStrLn ("This N-gram appeared " ++ (show (getSecond mostFreqTuple)) ++ " times in the file.")
+    options gramMap
 
 -- getting an unodered gram List
 temp [] = []
