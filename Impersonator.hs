@@ -74,7 +74,21 @@ predictions gm lst =
   case HM.lookup lst gm of
     Just fm -> M.toList fm
     Nothing -> predictions gm (tail lst)
-    
+
+-- This causes an exception if there are no predictions, maybe use Maybe?
+-- predictNextBest :: (Ord a, Hashable a) => GramMap a -> [a] -> a
+-- predictNextBest gm =
+--   fst . head . sortByFreq . predictions gm
+
+-- Also causes an exception if there are no predictions
+-- predictNextRand :: (Ord a, Hashable a, RandomGen g) => GramMap a -> [a] -> g -> (a, g)
+-- predictNextRand gm lst rng =
+--   let preds = predictions gm lst
+--       freqSum = sum $ map snd preds
+--       (index, nRng) = R.randomR (0,freqSum-1) rng
+--   in
+--     (expandPredictions preds !! index, nRng)
+
 -- Causes an exception if there are ever no predictions
 predictBest :: (Ord a, Hashable a) => GramMap a -> [a] -> Int -> [a]
 predictBest _ lst 0 = lst
@@ -133,8 +147,8 @@ main =
 options gramMap =
   do
     putStrLn "\nType in the option (number) to proceed"
-    putStrLn "1. Impersonate it really well!"
-    putStrLn "2. Impersonate at random"
+    putStrLn "1. Impersonate it!"
+    putStrLn "2. Impersonate at random! (improved)"
     putStrLn "3. See some statistics"
     putStrLn "4. Quit"
     opt <- getLine
@@ -148,11 +162,11 @@ options gramMap =
 
 impersonateB gramMap = 
   do
-    putStrLn "Start to impersonate by typing in a few words"
+    putStrLn "\nStart to impersonate by typing in a few words"
     inputStr <- getLine
     putStrLn "How long would you like the sentence to be?"
     predLen <- getLine
-    let predicted = (predictBest gramMap (processText inputStr) (read predLen))
+    let predicted = (predictBest gramMap (processText inputStr) ((read predLen) - 1))
     putStrLn "\nThe sentence:"
     -- tail is to delete the unnecessary whitespace character
     putStrLn(tail (combineText predicted) ++ "\n")
@@ -161,20 +175,20 @@ impersonateB gramMap =
 impersonateR gramMap = 
   do
     rng <- getStdGen
-    putStrLn "Start to impersonate (randomly) by typing in a few words"
+    putStrLn "\nStart to impersonate (randomly) by typing in a few words"
     inputStr <- getLine
     putStrLn "How long would you like the sentence to be?"
     predLen <- getLine
     let processedText = processText inputStr
         predLenNum    = (read predLen)
-        predicted     = (predictRand gramMap processedText predLenNum rng)
+        predicted     = (predictRand gramMap processedText (predLenNum - 1) rng)
     setStdGen (getSecond predicted)
     putStrLn (combineText (getFirst predicted))
     options gramMap
 
 mostFreqNGram gramMap =
   do
-    putStrLn "type in a number (N) to see the most frequent N-gram of that size!"
+    putStrLn "\ntype in a number (N) to see the most frequent N-gram of that size! (including punctuation)"
     input <- getLine
     let gramList = HM.toList(gramMap)
         unorderedList = (temp gramList)
@@ -198,7 +212,7 @@ getTuple ((a,b):y) n
 
 endProgram =
   do 
-    putStrLn "Goodbye!"
+    putStrLn "\nGoodbye!"
     return ()
     
 invalidOption gramMap =
