@@ -7,11 +7,13 @@ import Data.List (sortBy, foldl')
 import Data.List.Split (split, whenElt)
 import Data.Function (on)
 import System.Environment (getArgs)
+import System.Random (Random, RandomGen)
 
 import Data.Hashable
 
 import qualified Data.Map as M
 import qualified Data.HashMap.Strict as HM
+import qualified System.Random as R
 
 type Gram a = ([a], a)
 type GramPred a = (a, Int)
@@ -68,12 +70,49 @@ expandPredictions [] = []
 expandPredictions ((v, 0):t) = expandPredictions t
 expandPredictions ((v, f):t) = v : (expandPredictions ((v, f-1):t))
 
-predictNext :: (Ord a, Hashable a) => GramMap a -> [a] -> [GramPred a]
-predictNext _ [] = []
-predictNext gm lst =
+predictions :: (Ord a, Hashable a) => GramMap a -> [a] -> [GramPred a]
+predictions _ [] = []
+predictions gm lst =
   case HM.lookup lst gm of
-    Just fm -> sortByFreq $ M.toList fm
-    Nothing -> predictNext gm (tail lst)
+    Just fm -> M.toList fm
+    Nothing -> predictions gm (tail lst)
+
+-- This causes an exception if there are no predictions, maybe use Maybe?
+-- predictNextBest :: (Ord a, Hashable a) => GramMap a -> [a] -> a
+-- predictNextBest gm =
+--   fst . head . sortByFreq . predictions gm
+
+-- Also causes an exception if there are no predictions
+-- predictNextRand :: (Ord a, Hashable a, RandomGen g) => GramMap a -> [a] -> g -> (a, g)
+-- predictNextRand gm lst rng =
+--   let preds = predictions gm lst
+--       freqSum = sum $ map snd preds
+--       (index, nRng) = R.randomR (0,freqSum-1) rng
+--   in
+--     (expandPredictions preds !! index, nRng)
+
+-- Causes an exception if there are ever no predictions
+predictBest :: (Ord a, Hashable a) => GramMap a -> [a] -> Int -> [a]
+predictBest _ lst 0 = lst
+predictBest gm lst n =
+  predictBest gm (lst ++ [fst $ head $ sortByFreq $ predictions gm lst]) (n-1)
+
+predictRand :: (Ord a, Hashable a, RandomGen g) => GramMap a -> [a] -> Int -> g -> ([a], g)
+predictRand _ lst 0 g = (lst,g)
+predictRand gm lst n rng =
+  let preds = predictions gm lst
+      freqSum = sum $ map snd preds
+      (index, nRng) = R.randomR (0,freqSum-1) rng
+  in
+    predictRand gm (lst ++ [expandPredictions preds !! index]) (n-1) nRng
+
+combineText :: [String] -> String
+combineText [] = ""
+combineText ([e]:t)
+  | e `elem` ",.?!:;\"" = [e] ++ combineText t
+  | otherwise = [' ', e] ++ combineText t
+combineText (h:t) =
+  ' ' : h ++ combineText t
 
 processText :: String -> [String]
 processText =
