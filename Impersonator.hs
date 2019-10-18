@@ -74,21 +74,7 @@ predictions gm lst =
   case HM.lookup lst gm of
     Just fm -> M.toList fm
     Nothing -> predictions gm (tail lst)
-
--- This causes an exception if there are no predictions, maybe use Maybe?
--- predictNextBest :: (Ord a, Hashable a) => GramMap a -> [a] -> a
--- predictNextBest gm =
---   fst . head . sortByFreq . predictions gm
-
--- Also causes an exception if there are no predictions
--- predictNextRand :: (Ord a, Hashable a, RandomGen g) => GramMap a -> [a] -> g -> (a, g)
--- predictNextRand gm lst rng =
---   let preds = predictions gm lst
---       freqSum = sum $ map snd preds
---       (index, nRng) = R.randomR (0,freqSum-1) rng
---   in
---     (expandPredictions preds !! index, nRng)
-
+    
 -- Causes an exception if there are ever no predictions
 predictBest :: (Ord a, Hashable a) => GramMap a -> [a] -> Int -> [a]
 predictBest _ lst 0 = lst
