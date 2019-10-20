@@ -11,7 +11,7 @@ import System.Random (Random, RandomGen)
 
 import Data.Hashable
 
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 import qualified Data.HashMap.Strict as HM
 import qualified System.Random as R
 
@@ -49,15 +49,15 @@ separateElems seps = split (whenElt (`elem` seps))
 sortByFreq :: Ord n => [(t, n)] -> [(t, n)]
 sortByFreq tuples = sortBy (flip compare `on` (\(a,b)->b)) tuples
 
-listHasN :: Int -> [a] -> Bool
-listHasN 0 _ = True
-listHasN n [] = False
-listHasN n (h:t) = listHasN (n-1) t
+getGram :: Int -> [a] -> Maybe (Gram a)
+getGram _ [] = Nothing
+getGram 1 (h:_) = Just ([], h)
+getGram n (h:t) = fmap (\(l,r) -> ((h:l), r)) $ getGram (n-1) t
 
 ngrams :: [a] -> Int -> [Gram a]
-ngrams lst n
-    | listHasN n lst = (take (n-1) lst, lst !! (n-1)) : ngrams (tail lst) n
-    | otherwise = []
+ngrams lst n = case getGram n lst of
+                 Just gram -> gram : ngrams (tail lst) n
+                 Nothing -> []
 
 insertGram :: (Ord a, Hashable a) => Gram a -> GramMap a -> GramMap a
 insertGram (key,next) = HM.alter (Just . M.insertWith (+) next 1 . fromMaybe M.empty) key
@@ -70,41 +70,52 @@ expandPredictions [] = []
 expandPredictions ((v, 0):t) = expandPredictions t
 expandPredictions ((v, f):t) = v : (expandPredictions ((v, f-1):t))
 
-predictions :: (Ord a, Hashable a) => GramMap a -> [a] -> [GramPred a]
-predictions _ [] = []
-predictions gm lst =
+
+longestPredictions :: (Ord a, Hashable a) => GramMap a -> [a] -> Map a Int
+longestPredictions _ [] = M.empty
+longestPredictions gm lst =
   case HM.lookup lst gm of
-    Just fm -> M.toList fm
-    Nothing -> predictions gm (tail lst)
+    Just fm -> fm
+    Nothing -> longestPredictions gm (tail lst)
 
--- This causes an exception if there are no predictions, maybe use Maybe?
--- predictNextBest :: (Ord a, Hashable a) => GramMap a -> [a] -> a
--- predictNextBest gm =
---   fst . head . sortByFreq . predictions gm
-
--- Also causes an exception if there are no predictions
--- predictNextRand :: (Ord a, Hashable a, RandomGen g) => GramMap a -> [a] -> g -> (a, g)
--- predictNextRand gm lst rng =
---   let preds = predictions gm lst
---       freqSum = sum $ map snd preds
---       (index, nRng) = R.randomR (0,freqSum-1) rng
---   in
---     (expandPredictions preds !! index, nRng)
+predictions :: (Ord a, Hashable a) => GramMap a -> [a] -> Map a Int
+predictions _ [] = M.empty
+predictions gm lst =
+  let subMap = predictions gm (tail lst)
+  in
+    case HM.lookup lst gm of
+      Just fm -> M.unionWith (\tn sn -> M.size subMap * tn + sn) fm $ predictions gm (tail lst)
+      Nothing -> predictions gm (tail lst)
 
 -- Causes an exception if there are ever no predictions
-predictBest :: (Ord a, Hashable a) => GramMap a -> [a] -> Int -> [a]
-predictBest _ lst 0 = lst
-predictBest gm lst n =
-  predictBest gm (lst ++ [fst $ head $ sortByFreq $ predictions gm lst]) (n-1)
+generatePopular :: (Ord a, Hashable a) => GramMap a -> [a] -> Int -> [a]
+generatePopular _ lst 0 = lst
+generatePopular gm lst n =
+  generatePopular gm (lst ++ [fst $ head $ sortByFreq $ M.toList $ predictions gm lst]) (n-1)
 
-predictRand :: (Ord a, Hashable a, RandomGen g) => GramMap a -> [a] -> Int -> g -> ([a], g)
-predictRand _ lst 0 g = (lst,g)
-predictRand gm lst n rng =
-  let preds = predictions gm lst
+frequencySelect :: [GramPred a] -> Int -> a
+frequencySelect ((val, c):t) n
+  | c > n = val
+  | otherwise = frequencySelect t (n-c)
+
+generateFrequency :: (Ord a, Hashable a, RandomGen g) => GramMap a -> [a] -> Int -> g -> ([a], g)
+generateFrequency _ lst 0 g = (lst, g)
+generateFrequency gm lst n rng =
+  let preds = M.toList $ predictions gm lst
       freqSum = sum $ map snd preds
       (index, nRng) = R.randomR (0,freqSum-1) rng
+      selected = frequencySelect preds index
   in
-    predictRand gm (lst ++ [expandPredictions preds !! index]) (n-1) nRng
+    generateFrequency gm (lst ++ [selected]) (n-1) nRng
+
+generateRandom :: (Ord a, Hashable a, RandomGen g) => GramMap a -> [a] -> Int -> g -> ([a], g)
+generateRandom _ lst 0 g = (lst, g)
+generateRandom gm lst n rng =
+  let preds = M.toList $ predictions gm lst
+      (index, nRng) = R.randomR (0, length preds - 1) rng
+      selected = fst $ preds !! index
+  in
+    generateRandom gm (lst ++ [selected]) (n-1) nRng
 
 combineText :: [String] -> String
 combineText [] = ""
