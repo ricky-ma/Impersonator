@@ -91,12 +91,12 @@ generatePopular :: (Ord a, Hashable a) => GramMap a -> [a] -> Int -> [a]
 generatePopular _ lst 0 = lst
 generatePopular gm lst n =
   generatePopular gm (lst ++ [fst $ head $ sortByFreq $ M.toList $ predictions gm lst]) (n-1)
-  
+
 frequencySelect :: [GramPred a] -> Int -> a
 frequencySelect ((val, c):t) n
   | c > n = val
   | otherwise = frequencySelect t (n-c)
-  
+
 generateFrequency :: (Ord a, Hashable a, RandomGen g) => GramMap a -> [a] -> Int -> g -> ([a], g)
 generateFrequency _ lst 0 g = (lst, g)
 generateFrequency gm lst n rng =
@@ -115,12 +115,6 @@ generateRandom gm lst n rng =
       selected = fst $ preds !! index
   in
     generateRandom gm (lst ++ [selected]) (n-1) nRng
-
-getFirst :: (x,y) -> x
-getFirst (x,y) = x
-
-getSecond :: (x,y) -> y
-getSecond (x,y) = y
 
 combineText :: [String] -> String
 combineText [] = ""
@@ -159,22 +153,22 @@ main =
 options gramMap =
   do
     putStrLn "\nType in the option (number) to proceed"
-    putStrLn "1. Impersonate it!"
-    putStrLn "2. Impersonate at random! (improved)"
+    putStrLn "1. Impersonate it well!"
+    putStrLn "2. Impersonate it overfitted!"
     putStrLn "3. See some statistics"
     putStrLn "4. Quit"
     opt <- getLine
     let optNum = (read opt)
     case optNum of
-      1 -> impersonateB gramMap
-      2 -> impersonateR gramMap
+      1 -> impersonate gramMap
+      2 -> impersonateOverfit gramMap
       3 -> mostFreqNGram gramMap
       4 -> endProgram
       otherwise -> invalidOption gramMap
 
-impersonateB gramMap = 
+impersonateOverfit gramMap =
   do
-    putStrLn "\nStart to impersonate by typing in a few words"
+    putStrLn "\nStart to impersonate (overfitted) by typing in a few words"
     inputStr <- getLine
     putStrLn "How long would you like the sentence to be?"
     predLen <- getLine
@@ -184,20 +178,20 @@ impersonateB gramMap =
     putStrLn(tail (combineText predicted) ++ "\n")
     options gramMap
 
-impersonateR gramMap = 
+impersonate gramMap =
   do
     rng <- getStdGen
-    putStrLn "\nStart to impersonate (randomly) by typing in a few words"
+    putStrLn "\nStart to impersonate by typing in a few words"
     inputStr <- getLine
     putStrLn "How long would you like the sentence to be?"
     predLen <- getLine
     let processedText = processText inputStr
-        predLenNum    = (read predLen)
-        predicted     = (generateRandom gramMap processedText (predLenNum - 1) rng)
-    setStdGen (getSecond predicted)
+        predLenNum    = read predLen
+        predicted     = generateFrequency gramMap processedText (predLenNum - 1) rng
+    setStdGen (snd predicted)
     putStrLn "\nThe sentence:"
     -- tail is to delete the unnecessary whitespace character
-    putStrLn(tail (combineText (getFirst predicted)) ++ "\n")
+    putStrLn(tail (combineText (fst predicted)) ++ "\n")
     options gramMap
 
 mostFreqNGram gramMap =
@@ -217,16 +211,16 @@ mostFreqNGram gramMap =
         mostFreq4 = (getTuple noTop3 num)
         noTop4 = (delTopTuple noTop3 mostFreq4)
         mostFreq5 = (getTuple noTop4 num)
-    putStrLn ("\n1. " ++ combineText (getFirst mostFreq1))
-    putStrLn ("This N-gram appeared " ++ (show (getSecond mostFreq1)) ++ " times in the file.\n")
-    putStrLn ("2. " ++ combineText (getFirst mostFreq2))
-    putStrLn ("This N-gram appeared " ++ (show (getSecond mostFreq2)) ++ " times in the file.\n")
-    putStrLn ("3. " ++ combineText (getFirst mostFreq3))
-    putStrLn ("This N-gram appeared " ++ (show (getSecond mostFreq3)) ++ " times in the file.\n")
-    putStrLn ("4. " ++ combineText (getFirst mostFreq4))
-    putStrLn ("This N-gram appeared " ++ (show (getSecond mostFreq4)) ++ " times in the file.\n")
-    putStrLn ("5. " ++ combineText (getFirst mostFreq5))
-    putStrLn ("This N-gram appeared " ++ (show (getSecond mostFreq5)) ++ " times in the file.\n")
+    putStrLn ("\n1. " ++ combineText (fst mostFreq1))
+    putStrLn ("This N-gram appeared " ++ (show (snd mostFreq1)) ++ " times in the file.\n")
+    putStrLn ("2. " ++ combineText (fst mostFreq2))
+    putStrLn ("This N-gram appeared " ++ (show (snd mostFreq2)) ++ " times in the file.\n")
+    putStrLn ("3. " ++ combineText (fst mostFreq3))
+    putStrLn ("This N-gram appeared " ++ (show (snd mostFreq3)) ++ " times in the file.\n")
+    putStrLn ("4. " ++ combineText (fst mostFreq4))
+    putStrLn ("This N-gram appeared " ++ (show (snd mostFreq4)) ++ " times in the file.\n")
+    putStrLn ("5. " ++ combineText (fst mostFreq5))
+    putStrLn ("This N-gram appeared " ++ (show (snd mostFreq5)) ++ " times in the file.\n")
     options gramMap
 
 -- getting an unodered gram List
@@ -244,14 +238,14 @@ getTuple ((a,b):y) n
 
 delTopTuple [] _ = []
 delTopTuple (h:t) a
-    | ((getFirst h) == (getFirst a) && (getSecond h) == (getSecond a)) = delTopTuple t a
+    | ((fst h) == (fst a) && (snd h) == (snd a)) = delTopTuple t a
     | otherwise              = h : delTopTuple t a
 
 endProgram =
-  do 
+  do
     putStrLn "\nGoodbye!"
     return ()
-    
+
 invalidOption gramMap =
   do
     putStrLn "Invalid option! Please try again."
